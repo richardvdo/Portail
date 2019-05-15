@@ -1,8 +1,7 @@
-
 // digital pin 2 has a pushbutton attached to it. Give it a name:
 int finCourseFerme = 4;
 int finCourseOuvert = 5;
-int sens = 6;
+int sensFct = 6;
 int miseFctChargeur = 7;
 int miseFctMoteur = 8;
 int bttnOuvrir = 9;
@@ -10,9 +9,15 @@ int bttnFerme = 10;
 int bttnArret = 2;
 int bttnFctionement = 3;
 int diode = 11;
+int chargement = 12;
 int capteurCourant = A0;
-int seuilCourant = 512;
+int reglageCourantMax = A1;
 enum { fermeture, ouverture };
+byte on = LOW;
+byte off = HIGH;
+byte open = LOW;
+byte close = HIGH;
+byte protection = LOW;
 
 void setup() {
   //start serial connection
@@ -24,14 +29,15 @@ void setup() {
   pinMode(bttnFerme, INPUT_PULLUP);
   pinMode(bttnArret, INPUT_PULLUP);
   pinMode(bttnFctionement, INPUT_PULLUP);
-  pinMode(sens, OUTPUT);
+  pinMode(chargement, INPUT_PULLUP);
+  pinMode(sensFct, OUTPUT);
   pinMode(miseFctChargeur, OUTPUT);
   pinMode(miseFctMoteur, OUTPUT);
   pinMode(diode, OUTPUT);
-  digitalWrite(sens, LOW);
-  digitalWrite(miseFctChargeur, LOW);
-  digitalWrite(miseFctMoteur, LOW);
-  digitalWrite(diode, LOW);
+  digitalWrite(sensFct, close);
+  digitalWrite(miseFctChargeur, off);
+  digitalWrite(miseFctMoteur, off);
+  digitalWrite(diode, off);
   
 }
 
@@ -39,13 +45,19 @@ void setup() {
 void mesureCourant(const byte sens) {
   int cptCourant = analogRead(capteurCourant);
   float voltage = cptCourant * (5.0 / 1023.0);
-  if(voltage >= seuilCourant)
+  int courantMax = analogRead(reglageCourantMax);
+  float voltageMax = courantMax * (5.0 / 1023.0);
+  Serial.println(voltage);
+  Serial.println(voltageMax);
+  if(voltage >= voltageMax)
   {
-    delay(0.25);
+    delay(500);
     cptCourant = analogRead(capteurCourant);
     voltage = cptCourant * (5.0 / 1023.0);
-    if(voltage >= seuilCourant)
+    Serial.println("depassement crt");
+    if(voltage >= voltageMax)
     {
+      Serial.println("depassementcrt blocage");
       blocage(sens);
     }
   }
@@ -54,84 +66,110 @@ void mesureCourant(const byte sens) {
 
 
 void ouvrir() {
-  while(digitalRead(finCourseOuvert) != LOW)
+//  Serial.println("debut ouverture");
+//  Serial.println(finCourseOuvert);
+  while(digitalRead(finCourseOuvert) != HIGH && digitalRead(bttnOuvrir) == LOW && digitalRead(bttnFctionement) == HIGH && protection == LOW)
   {
-    digitalWrite(sens, LOW);
-    digitalWrite(miseFctChargeur, HIGH);
-    digitalWrite(miseFctMoteur, HIGH);
+//    Serial.println("ouverture");
+    digitalWrite(sensFct, open);
+    digitalWrite(miseFctChargeur, on);
+    delay(250);    
+    digitalWrite(miseFctMoteur, on);
     mesureCourant(ouverture);
-    digitalWrite(diode, LOW);  
-    delay(0.25);
-    digitalWrite(diode, HIGH);
-    delay(0.25);  
+    digitalWrite(diode, off);  
+    delay(250);
+    digitalWrite(diode, on);
+    delay(250);  
   }
-  digitalWrite(sens, LOW);
-  digitalWrite(miseFctChargeur, LOW);
-  digitalWrite(miseFctMoteur, LOW);
+//  Serial.println("arret ouverture");
+  digitalWrite(sensFct, close);
+  digitalWrite(miseFctMoteur, off);
+  delay(2500);
+  digitalWrite(miseFctChargeur, off);
 }
 
 
 void fermer() {
-  while(digitalRead(finCourseFerme) != LOW)
+//  Serial.println("debut fermeture");
+//  Serial.println(finCourseFerme);
+  while(digitalRead(finCourseFerme) != HIGH && digitalRead(bttnFerme) == LOW && digitalRead(bttnFctionement) == HIGH && protection == LOW)
   {
-    digitalWrite(sens, HIGH);
-    digitalWrite(miseFctChargeur, HIGH);
-    digitalWrite(miseFctMoteur, HIGH);
+//    Serial.println("fermeture");
+    digitalWrite(sensFct, close);
+    digitalWrite(miseFctChargeur, on);
+    digitalWrite(miseFctMoteur, on);
     mesureCourant(fermeture);
-    digitalWrite(diode, LOW);  
-    delay(0.25);
-    digitalWrite(diode, HIGH);
-    delay(0.25); 
+    digitalWrite(diode, off);  
+    delay(250);
+    digitalWrite(diode, on);
+    delay(250); 
   }
-  digitalWrite(sens, LOW);
-  digitalWrite(miseFctChargeur, LOW);
-  digitalWrite(miseFctMoteur, LOW);    
+//  Serial.println("arret fermeture");
+  digitalWrite(sensFct, close);
+  digitalWrite(miseFctMoteur, off);
+  delay(2500);
+  digitalWrite(miseFctChargeur, off);    
 }
 
 
 void blocage(const byte sens) {
+//  Serial.println("blocage");
   switch (sens) {
-    case ouverture:  
-      digitalWrite(sens, HIGH);
-      digitalWrite(miseFctChargeur, HIGH);
-      digitalWrite(miseFctMoteur, HIGH);
-      delay(2);
-      digitalWrite(sens, LOW);
-      digitalWrite(miseFctChargeur, LOW);
-      digitalWrite(miseFctMoteur, LOW);    
+    case ouverture:
+//      Serial.println("ouverture");
+      digitalWrite(sensFct, close);
+      digitalWrite(miseFctChargeur, on);
+      digitalWrite(miseFctMoteur, on);
+      delay(2000);
+//      Serial.println("apres inversion");      
+      digitalWrite(sensFct, close);
+      digitalWrite(miseFctChargeur, off);
+      digitalWrite(miseFctMoteur, off);    
       break;
     case fermeture: 
-      digitalWrite(sens, LOW);
-      digitalWrite(miseFctChargeur, HIGH);
-      digitalWrite(miseFctMoteur, HIGH);
-      delay(2);
-      digitalWrite(sens, LOW);
-      digitalWrite(miseFctChargeur, LOW);
-      digitalWrite(miseFctMoteur, LOW);      
+//      Serial.println("fermeture");
+      digitalWrite(sensFct, open);
+      digitalWrite(miseFctChargeur, on);
+      digitalWrite(miseFctMoteur, on);
+      delay(2000);
+//      Serial.println("apres inversion");
+      digitalWrite(sensFct, close);
+      digitalWrite(miseFctChargeur, off);
+      digitalWrite(miseFctMoteur, off);      
       break;
     default:
-      digitalWrite(sens, LOW);
-      digitalWrite(miseFctChargeur, LOW);
-      digitalWrite(miseFctMoteur, LOW);
+//      Serial.println("defaut");
+      digitalWrite(sensFct, close);
+      digitalWrite(miseFctChargeur, off);
+      digitalWrite(miseFctMoteur, off);
       break;
 }
-
+protection = HIGH;
 }
 
 void loop() {
-  Serial.println("debut"); 
-  if (digitalRead(bttnFctionement) == LOW) {
+//  Serial.println("debut");
+  if (digitalRead(bttnFctionement) == HIGH && protection == LOW) {
     digitalWrite(diode, HIGH);
+//    Serial.println("bouclebttnfct"); 
     if(digitalRead(bttnFerme) == LOW)
     {
+//      Serial.println("fermer");
       fermer();
     }
     if(digitalRead(bttnOuvrir) == LOW)
     {
+//      Serial.println("ouvrir");
       ouvrir();
     }    
   }
-  delay(1);
-  digitalWrite(diode, LOW);        
+  if(digitalRead(chargement) == LOW)
+    {
+//      Serial.println("fermer");
+      digitalWrite(miseFctChargeur, on);
+    }
+  delay(1000);
+  digitalWrite(diode, LOW);
+//  Serial.println("fin");       
   } 
 
